@@ -2,6 +2,10 @@
 
 A real-time multiplayer Tic Tac Toe game with Docker deployment, Nginx frontend, and Node.js backend using Socket.IO.
 
+## Screenshot
+
+![Tic Tac Toe Game](screenshot/op.png)
+
 ## Architecture
 
 ```
