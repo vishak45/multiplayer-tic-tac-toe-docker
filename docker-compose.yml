@@ -1,0 +1,30 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html
+    restart: always
+
+    depends_on:
+      - backend
+
+    networks:
+      - test-networks
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Docker/Dockerfile
+    ports:
+      - "3000:3000"
+    restart: always
+
+    networks:
+      - test-networks
+
+networks:
+  test-networks:

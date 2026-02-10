@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tic Tac Toe</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .join-section {
+            margin-bottom: 20px;
+        }
+        .join-section input {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-right: 10px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .join-section input:focus {
+            border-color: #667eea;
+        }
+        .join-section button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .join-section button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .game-info {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .status {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        .player-info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 8px;
+            margin: 20px auto;
+            justify-content: center;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 10px;
+            font-size: 48px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cell:hover:not(.taken) {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+        .cell.taken {
+            cursor: not-allowed;
+        }
+        .cell.X {
+            color: #667eea;
+        }
+        .cell.O {
+            color: #e74c3c;
+        }
+        .hidden {
+            display: none;
+        }
+        #restartBtn {
+            margin-top: 15px;
+            padding: 12px 30px;
+            font-size: 16px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        #restartBtn:hover {
+            background: #219a52;
+        }
+        .waiting {
+            color: #f39c12;
+            font-weight: 600;
+        }
+        .winner {
+            color: #27ae60;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .draw {
+            color: #95a5a6;
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Tic Tac Toe</h1>
+        <!--mention this is created using socket.io, docker, nginx and nodeJS-->
+        <p>Powered by <a target="_blank"><span style="color:#333; font-weight: bold;">Socket.io</span></a>
+        , <a target="_blank"><span style="color:#667eea; font-weight: bold;">Docker</span></a>
+            , <a  target="_blank"><span style="color:#219a52; font-weight: bold;">Nginx</span></a>
+            and <a  target="_blank"><span style="color:#27ae60; font-weight: bold;">NodeJS</span></a></p>
+        <div class="join-section" id="joinSection">
+            <input type="text" id="gameIdInput" placeholder="Enter Game ID">
+            <button onclick="joinGame()">Join/Create Game</button>
+        </div>
+
+        <div id="gameSection" class="hidden">
+            <div class="game-info">
+                <div class="status" id="status">Waiting for opponent...</div>
+                <div class="player-info" id="playerInfo"></div>
+            </div>
+
+            <div class="board" id="board"></div>
+
+            <button id="restartBtn" class="hidden" onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        let socket;
+        let mySymbol = '';
+        let currentTurn = '';
+        let gameActive = false;
+
+        function joinGame() {
+            const gameId = document.getElementById('gameIdInput').value.trim();
+            if (!gameId) {
+                alert('Please enter a Game ID');
+                return;
+            }
+
+            socket = io('http://localhost:3000');
+
+            socket.on('connect', () => {
+                socket.emit('joinGame', gameId);
+            });
+
+            socket.on('gameJoined', (data) => {
+                mySymbol = data.playerSymbol;
+                document.getElementById('joinSection').classList.add('hidden');
+                document.getElementById('gameSection').classList.remove('hidden');
+                document.getElementById('playerInfo').textContent = 
+                    `Game ID: ${data.gameId} | You are: ${mySymbol}`;
+                renderBoard(data.board);
+                updateStatus(data);
+            });
+
+            socket.on('playerJoined', (data) => {
+                if (data.playersCount < 2) {
+                    document.getElementById('status').innerHTML = 
+                        '<span class="waiting">Waiting for opponent...</span>';
+                }
+            });
+
+            socket.on('gameStart', (data) => {
+                gameActive = true;
+                currentTurn = data.currentTurn;
+                renderBoard(data.board);
+                updateTurnStatus();
+            });
+
+            socket.on('moveMade', (data) => {
+                currentTurn = data.currentTurn;
+                renderBoard(data.board);
+                updateTurnStatus();
+            });
+
+            socket.on('gameOver', (data) => {
+                gameActive = false;
+                renderBoard(data.board);
+                
+                if (data.isDraw) {
+                    document.getElementById('status').innerHTML = 
+                        '<span class="draw">It\'s a Draw! 🤝</span>';
+                } else {
+                    const isWinner = data.winner === mySymbol;
+                    document.getElementById('status').innerHTML = isWinner
+                        ? '<span class="winner">You Win! </span>'
+                        : '<span class="winner">You Lose! </span>';
+                }
+                document.getElementById('restartBtn').classList.remove('hidden');
+            });
+
+            socket.on('gameRestarted', (data) => {
+                gameActive = true;
+                currentTurn = data.currentTurn;
+                renderBoard(data.board);
+                updateTurnStatus();
+                document.getElementById('restartBtn').classList.add('hidden');
+            });
+
+            socket.on('playerLeft', (data) => {
+                if (data.playersCount < 2) {
+                    gameActive = false;
+                    document.getElementById('status').innerHTML = 
+                        '<span class="waiting">Opponent left. Waiting for new player...</span>';
+                }
+            });
+
+            socket.on('error', (message) => {
+                console.error('Game error:', message);
+            });
+        }
+
+        function renderBoard(board) {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            
+            board.forEach((cell, index) => {
+                const cellEl = document.createElement('button');
+                cellEl.className = 'cell' + (cell ? ` taken ${cell}` : '');
+                cellEl.textContent = cell || '';
+                cellEl.onclick = () => makeMove(index);
+                boardEl.appendChild(cellEl);
+            });
+        }
+
+        function makeMove(position) {
+            if (!gameActive) return;
+            if (currentTurn !== mySymbol) return;
+            
+            socket.emit('makeMove', { position });
+        }
+
+        function updateStatus(data) {
+            if (data.playersCount < 2) {
+                document.getElementById('status').innerHTML = 
+                    '<span class="waiting">Waiting for opponent...</span>';
+            } else {
+                updateTurnStatus();
+            }
+        }
+
+        function updateTurnStatus() {
+            const isMyTurn = currentTurn === mySymbol;
+            document.getElementById('status').textContent = isMyTurn 
+                ? "Your turn!" 
+                : "Opponent's turn...";
+        }
+
+        function restartGame() {
+            socket.emit('restartGame');
+        }
+    </script>
+</body>
+</html>
