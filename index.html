@@ -250,8 +250,15 @@
             socket.on('playerLeft', (data) => {
                 if (data.playersCount < 2) {
                     gameActive = false;
+                    // Update symbol if reassigned (remaining player becomes X)
+                    if (data.playerSymbol) {
+                        mySymbol = data.playerSymbol;
+                        document.getElementById('playerInfo').textContent = 
+                            `Game ID: ${currentGameId} | You are: ${mySymbol}`;
+                    }
                     document.getElementById('status').innerHTML = 
                         '<span class="waiting">Opponent left. Waiting for new player...</span>';
+                    document.getElementById('restartBtn').classList.add('hidden');
                 }
             });
 

@@ -185,9 +185,29 @@ io.on('connection', (socket) => {
 
         if (game) {
             game.players = game.players.filter(id => id !== socket.id);
-            io.to(gameId).emit('playerLeft', {
-                playersCount: game.players.length
-            });
+            
+            // If one player remains, reassign them to X and reset game
+            if (game.players.length === 1) {
+                const remainingPlayerId = game.players[0];
+                const remainingSocket = io.sockets.sockets.get(remainingPlayerId);
+                if (remainingSocket) {
+                    remainingSocket.playerSymbol = 'X';
+                    // Reset the game state
+                    game.board = Array(9).fill(null);
+                    game.currentTurn = 'X';
+                    game.winner = null;
+                    game.gameOver = false;
+                    
+                    remainingSocket.emit('playerLeft', {
+                        playersCount: game.players.length,
+                        playerSymbol: 'X'
+                    });
+                }
+            } else {
+                io.to(gameId).emit('playerLeft', {
+                    playersCount: game.players.length
+                });
+            }
 
             if (game.players.length === 0) {
                 games.delete(gameId);
