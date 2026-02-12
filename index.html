@@ -170,6 +170,7 @@
         let mySymbol = '';
         let currentTurn = '';
         let gameActive = false;
+        let currentGameId = '';
 
         function joinGame() {
             const gameId = document.getElementById('gameIdInput').value.trim();
@@ -185,11 +186,13 @@
             });
 
             socket.on('gameJoined', (data) => {
+                console.log('gameJoined data:', data);
                 mySymbol = data.playerSymbol;
+                currentGameId = data.gameId;
                 document.getElementById('joinSection').classList.add('hidden');
                 document.getElementById('gameSection').classList.remove('hidden');
                 document.getElementById('playerInfo').textContent = 
-                    `Game ID: ${data.gameId} | You are: ${mySymbol}`;
+                    `Game ID: ${currentGameId} | You are: ${mySymbol}`;
                 renderBoard(data.board);
                 updateStatus(data);
             });
@@ -220,7 +223,7 @@
                 
                 if (data.isDraw) {
                     document.getElementById('status').innerHTML = 
-                        '<span class="draw">It\'s a Draw! 🤝</span>';
+                        '<span class="draw">It\'s a Draw!</span>';
                 } else {
                     const isWinner = data.winner === mySymbol;
                     document.getElementById('status').innerHTML = isWinner
@@ -231,9 +234,15 @@
             });
 
             socket.on('gameRestarted', (data) => {
+                console.log('gameRestarted data:', data);
                 gameActive = true;
+                if (data.playerSymbol) {
+                    mySymbol = data.playerSymbol;
+                }
                 currentTurn = data.currentTurn;
                 renderBoard(data.board);
+                document.getElementById('playerInfo').textContent = 
+                    `Game ID: ${currentGameId} | You are: ${mySymbol}`;
                 updateTurnStatus();
                 document.getElementById('restartBtn').classList.add('hidden');
             });
@@ -241,8 +250,15 @@
             socket.on('playerLeft', (data) => {
                 if (data.playersCount < 2) {
                     gameActive = false;
+                    // Update symbol if reassigned (remaining player becomes X)
+                    if (data.playerSymbol) {
+                        mySymbol = data.playerSymbol;
+                        document.getElementById('playerInfo').textContent = 
+                            `Game ID: ${currentGameId} | You are: ${mySymbol}`;
+                    }
                     document.getElementById('status').innerHTML = 
                         '<span class="waiting">Opponent left. Waiting for new player...</span>';
+                    document.getElementById('restartBtn').classList.add('hidden');
                 }
             });
 
