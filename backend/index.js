@@ -59,6 +59,9 @@ io.on('connection', (socket) => {
             games.set(gameId, game);
         }
 
+        // Clean up stale player references before checking
+        game.players = game.players.filter(playerId => io.sockets.sockets.has(playerId));
+
         if (game.players.length >= 2 && !game.players.includes(socket.id)) {
             socket.emit('error', 'Game is full');
             return;
@@ -71,8 +74,12 @@ io.on('connection', (socket) => {
         socket.join(gameId);
         socket.gameId = gameId;
 
-        const playerSymbol = game.players[0] === socket.id ? 'X' : 'O';
+        // Determine player symbol based on position in players array
+        const playerIndex = game.players.indexOf(socket.id);
+        const playerSymbol = playerIndex === 0 ? 'X' : 'O';
         socket.playerSymbol = playerSymbol;
+
+        console.log(`Player ${socket.id} joined game ${gameId} as ${playerSymbol}, players: ${game.players.length}`);
 
         socket.emit('gameJoined', {
             gameId,
@@ -142,14 +149,32 @@ io.on('connection', (socket) => {
 
         if (!game) return;
 
+        // Clean up stale player references
+        game.players = game.players.filter(playerId => io.sockets.sockets.has(playerId));
+
+        // Automatically swap roles for the new game
+        if (game.players.length === 2) {
+            game.players.reverse();
+        }
+
         game.board = Array(9).fill(null);
         game.currentTurn = 'X';
         game.winner = null;
         game.gameOver = false;
 
-        io.to(gameId).emit('gameRestarted', {
-            board: game.board,
-            currentTurn: game.currentTurn
+        // Notify each player of their new symbol
+        game.players.forEach((playerId, index) => {
+            const newSymbol = index === 0 ? 'X' : 'O';
+            const playerSocket = io.sockets.sockets.get(playerId);
+            if (playerSocket) {
+                playerSocket.playerSymbol = newSymbol;
+                playerSocket.emit('gameRestarted', {
+                    gameId: gameId,
+                    board: game.board,
+                    currentTurn: game.currentTurn,
+                    playerSymbol: newSymbol
+                });
+            }
         });
     });
 
