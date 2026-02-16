@@ -179,7 +179,7 @@
                 return;
             }
 
-            socket = io('http://localhost:3000');
+            socket = io(`${window.location.origin}:3000`);
 
             socket.on('connect', () => {
                 socket.emit('joinGame', gameId);
